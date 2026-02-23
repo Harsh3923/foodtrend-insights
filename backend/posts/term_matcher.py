@@ -1,9 +1,9 @@
 import re
 from posts.models import Post, Term, PostTerm
 
-def run_term_matching():
-    terms = Term.objects.filter(is_active=True)
-    posts = Post.objects.all()
+def run_term_matching(posts_qs=None):
+    terms = list(Term.objects.filter(is_active=True))
+    posts = posts_qs if posts_qs is not None else Post.objects.all()
 
     created_links = 0
 
@@ -12,13 +12,10 @@ def run_term_matching():
 
         for term in terms:
             pattern = r"\b" + re.escape(term.text.lower()) + r"\b"
-
             if re.search(pattern, content):
-                _, created = PostTerm.objects.get_or_create(
-                    post=post,
-                    term=term
-                )
+                _, created = PostTerm.objects.get_or_create(post=post, term=term)
                 if created:
                     created_links += 1
 
     print(f"Created {created_links} term links.")
+    return created_links
