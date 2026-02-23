@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from posts.reddit_json_ingest import ingest_reddit_json
 from posts.term_matcher import run_term_matching
+from posts.models import Post
 
 class Command(BaseCommand):
     help = "Ingest posts from Reddit public JSON endpoints and run term matching."
@@ -15,7 +16,15 @@ class Command(BaseCommand):
         sleep = options["sleep"]
         subs = options["subs"]
 
-        new_posts = ingest_reddit_json(subreddits=subs, limit=limit, sleep_seconds=sleep)
-        links = run_term_matching()
+        before_ids = set(Post.objects.values_list("id", flat=True))
+        ingest_reddit_json(subreddits=subs, limit=limit, sleep_seconds=sleep)
+        after_ids = set(Post.objects.values_list("id", flat=True))
 
-        self.stdout.write(self.style.SUCCESS(f"Done. New posts: {new_posts}, term links created: {links}"))
+        new_ids = after_ids - before_ids
+        new_posts_qs = Post.objects.filter(id__in=new_ids)
+
+        links = run_term_matching(posts_qs=new_posts_qs)
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Done. New posts: {len(new_ids)}, term links created: {links}")
+        )

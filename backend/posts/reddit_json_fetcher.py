@@ -7,8 +7,10 @@ from posts.models import Post
 DEFAULT_SUBREDDITS = ["food", "Cooking", "recipes"]
 
 HEADERS = {
-    "User-Agent": "foodtrend-insights/0.1 (by u/Sufficient-Mix-1372)",
-    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Accept": "application/json,text/plain,*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Connection": "keep-alive",
 }
 
 def _parse_created_utc(created_utc_value) -> datetime:
@@ -20,7 +22,9 @@ def ingest_from_subreddit(subreddit: str, limit: int = 50) -> int:
     r = requests.get(url, headers=HEADERS, timeout=20)
 
     if r.status_code != 200:
-        print(f"[{subreddit}] HTTP {r.status_code}")
+        # Reddit sometimes returns an HTML block page. Print first 120 chars to confirm.
+        snippet = (r.text or "")[:120].replace("\n", " ")
+        print(f"[{subreddit}] HTTP {r.status_code} | {snippet}")
         return 0
 
     data = r.json()
