@@ -4,7 +4,7 @@ from .models import Post, Term, PostTerm
 # Register your models here.
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ("reddit_id", "subreddit", "created_utc", "score", "num_comments")
+    list_display = ("reddit_id", "subreddit", "created_utc", "term_matched_at", "score", "num_comments")
     list_filter = ("subreddit",)
     search_fields = ("reddit_id", "title")
 
