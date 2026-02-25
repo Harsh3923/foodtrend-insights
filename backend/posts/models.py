@@ -14,6 +14,7 @@ class Post(models.Model):
     num_comments = models.IntegerField(default=0)
 
     fetched_at = models.DateTimeField(auto_now_add=True)
+    term_matched_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self) -> str:
         return f"[r/{self.subreddit}] {self.title[:60]}"
