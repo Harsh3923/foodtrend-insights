@@ -1,0 +1,62 @@
+# trending foods from last 14 days
+cottage cheese
+air fryer
+birria tacos
+tahini
+miso soup
+gochujang
+protein pasta
+chicken
+rice
+sauce
+pork
+oil
+garlic
+beef
+salt
+soup
+onions
+cheese
+meat
+pepper
+cream
+curry
+butter
+flour
+pasta
+juice
+salad
+lemon
+shrimp
+thai
+stew
+potatoes
+milk
+noodles
+turkey
+tomatoes
+olive
+egg
+eggs
+cabbage
+spice
+corn
+chips
+maple
+mayo
+ground
+broth
+sugar
+peppers
+olive oil
+lemon juice
+cinnamon
+coconut
+steak
+celery
+cloves
+powder
+tomato
+syrup
+cauliflower
+sushi
