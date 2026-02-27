@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ScoresHistogram from "./ScoresHistogram";
 
 const API_BASE = "http://127.0.0.1:8000"; // Django base
 
@@ -235,6 +236,16 @@ export default function App() {
               ))}
             </div>
 
+            <div style={styles.divider} />
+            <div style={styles.cardTitleSmall}>Score histogram</div>
+            <div style={styles.chartWrap}>
+              {trendLoading ? (
+                <div style={styles.muted}>Loading chart…</div>
+              ) : (
+                <ScoresHistogram trending={trending} />
+              )}
+            </div>
+
             <div style={styles.footerNote}>
               Click a term to instantly search + apply the term filter.
             </div>
@@ -382,4 +393,10 @@ const styles = {
   },
   hint: { fontSize: 12, color: "#93a1ba" },
   footerNote: { marginTop: 12, fontSize: 12, color: "#93a1ba", lineHeight: 1.35 },
+  chartWrap: {
+  border: "1px solid #1f2a3c",
+  borderRadius: 16,
+  background: "#0b111b",
+  padding: 10,
+  },
 };
