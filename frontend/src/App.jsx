@@ -3,6 +3,21 @@ import ScoresHistogram from "./ScoresHistogram";
 
 const API_BASE = "http://127.0.0.1:8000"; // Django base
 
+const ORIGIN_LABEL = {
+  other: "Other/Unclear",
+  american_canadian: "American/Canadian",
+  italian: "Italian",
+  mexican: "Mexican",
+  korean: "Korean",
+  japanese: "Japanese",
+  chinese: "Chinese",
+  indian: "Indian",
+  middle_eastern: "Middle Eastern",
+  southeast_asian: "Southeast Asian",
+  french: "French",
+  fusion: "Fusion",
+};
+
 function timeAgo(iso) {
   const d = new Date(iso);
   const s = Math.floor((Date.now() - d.getTime()) / 1000);
@@ -24,6 +39,11 @@ export default function App() {
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendErr, setTrendErr] = useState("");
 
+  // NEW: cuisines (globalization)
+  const [cuisines, setCuisines] = useState([]);
+  const [cuisineLoading, setCuisineLoading] = useState(false);
+  const [cuisineErr, setCuisineErr] = useState("");
+
   const [q, setQ] = useState("");
   const [activeTerm, setActiveTerm] = useState("");
   const [results, setResults] = useState([]);
@@ -44,6 +64,27 @@ export default function App() {
     } finally {
       setTrendLoading(false);
     }
+  }
+
+  // NEW: fetch cuisines
+  async function fetchCuisines() {
+    setCuisineLoading(true);
+    setCuisineErr("");
+    try {
+      const r = await fetch(`${API_BASE}/api/trending-cuisines?days=${days}&limit=12`);
+      const data = await r.json();
+      setCuisines(data.results || []);
+    } catch (e) {
+      setCuisineErr("Failed to load cuisines. Is Django running on 8000?");
+    } finally {
+      setCuisineLoading(false);
+    }
+  }
+
+  // Refresh both at once
+  function refreshAll() {
+    fetchTrending();
+    fetchCuisines();
   }
 
   async function runSearch(nextQ, nextTerm) {
@@ -77,7 +118,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    fetchTrending();
+    refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days, limit]);
 
@@ -124,7 +165,7 @@ export default function App() {
               />
             </label>
 
-            <button onClick={fetchTrending} style={styles.btn}>
+            <button onClick={refreshAll} style={styles.btn}>
               Refresh
             </button>
           </div>
@@ -202,8 +243,42 @@ export default function App() {
             </div>
           </section>
 
-          {/* Right: Trends */}
+          {/* Right: Cuisines + Terms */}
           <aside style={styles.card}>
+            {/* NEW: Trending Cuisines */}
+            <div style={styles.cardTitle}>Trending Cuisines</div>
+
+            {cuisineErr ? <div style={styles.err}>{cuisineErr}</div> : null}
+
+            <div style={styles.chips}>
+              {cuisineLoading ? (
+                <div style={styles.muted}>Loading cuisines…</div>
+              ) : (
+                cuisines.map((c) => (
+                  <button
+                    key={c.origin}
+                    style={styles.chip}
+                    type="button"
+                    title={`trend ${c.trend_score} • mentions ${c.mentions} • spread ${c.subreddit_spread} • spike ${c.spike}`}
+                    onClick={() => {
+                      // optional: later we can implement cuisine → term drilldown
+                    }}
+                  >
+                    {ORIGIN_LABEL[c.origin] || c.origin}
+                    <span style={styles.chipBadge}>{c.mentions}</span>
+                    <span style={styles.chipBadge}>spread {c.subreddit_spread}</span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <div style={styles.footerNote}>
+              Spread = number of unique subreddits mentioning that cuisine in the selected time window.
+            </div>
+
+            <div style={styles.divider} />
+
+            {/* Existing: Trending Terms */}
             <div style={styles.cardTitle}>Trending Terms</div>
 
             {trendErr ? <div style={styles.err}>{trendErr}</div> : null}
@@ -239,11 +314,7 @@ export default function App() {
             <div style={styles.divider} />
             <div style={styles.cardTitleSmall}>Score histogram</div>
             <div style={styles.chartWrap}>
-              {trendLoading ? (
-                <div style={styles.muted}>Loading chart…</div>
-              ) : (
-                <ScoresHistogram trending={trending} />
-              )}
+              {trendLoading ? <div style={styles.muted}>Loading chart…</div> : <ScoresHistogram trending={trending} />}
             </div>
 
             <div style={styles.footerNote}>
@@ -294,7 +365,13 @@ const styles = {
     boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
   },
   cardTitle: { fontSize: 14, fontWeight: 800, letterSpacing: 0.4, marginBottom: 10 },
-  cardTitleSmall: { fontSize: 13, fontWeight: 800, letterSpacing: 0.3, marginBottom: 8, color: "#c9d5ea" },
+  cardTitleSmall: {
+    fontSize: 13,
+    fontWeight: 800,
+    letterSpacing: 0.3,
+    marginBottom: 8,
+    color: "#c9d5ea",
+  },
   row: { display: "flex", gap: 10, alignItems: "center" },
   row2: { marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" },
   input: {
@@ -344,7 +421,14 @@ const styles = {
   },
   itemTop: { display: "flex", justifyContent: "space-between", gap: 8 },
   itemTitle: { fontSize: 14, fontWeight: 800, lineHeight: 1.25 },
-  itemMeta: { marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", color: "#a8b3c7", fontSize: 12 },
+  itemMeta: {
+    marginTop: 8,
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    color: "#a8b3c7",
+    fontSize: 12,
+  },
   chips: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 },
   chip: {
     display: "inline-flex",
@@ -367,7 +451,12 @@ const styles = {
   },
   divider: { height: 1, background: "#1e2a3d", margin: "14px 0" },
   top5: { display: "flex", flexDirection: "column", gap: 10 },
-  top5Row: { padding: 10, border: "1px solid #1f2a3c", borderRadius: 16, background: "#0b111b" },
+  top5Row: {
+    padding: 10,
+    border: "1px solid #1f2a3c",
+    borderRadius: 16,
+    background: "#0b111b",
+  },
   top5Term: { fontWeight: 800 },
   top5Nums: { marginTop: 6, display: "flex", gap: 10, flexWrap: "wrap" },
   kv: { fontSize: 12, color: "#a8b3c7" },
@@ -394,9 +483,9 @@ const styles = {
   hint: { fontSize: 12, color: "#93a1ba" },
   footerNote: { marginTop: 12, fontSize: 12, color: "#93a1ba", lineHeight: 1.35 },
   chartWrap: {
-  border: "1px solid #1f2a3c",
-  borderRadius: 16,
-  background: "#0b111b",
-  padding: 10,
+    border: "1px solid #1f2a3c",
+    borderRadius: 16,
+    background: "#0b111b",
+    padding: 10,
   },
 };
