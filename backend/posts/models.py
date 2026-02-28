@@ -19,12 +19,33 @@ class Post(models.Model):
     def __str__(self) -> str:
         return f"[r/{self.subreddit}] {self.title[:60]}"
     
+
 class Term(models.Model):
-    """
-    A food term like ramen, shawarma, etc that i track.
-    """
+    ORIGINS = [
+        ("american_canadian", "American/Canadian"),
+        ("italian", "Italian"),
+        ("mexican", "Mexican"),
+        ("korean", "Korean"),
+        ("japanese", "Japanese"),
+        ("chinese", "Chinese"),
+        ("indian", "Indian"),
+        ("middle_eastern", "Middle Eastern"),
+        ("southeast_asian", "Southeast Asian"),
+        ("french", "French"),
+        ("fusion", "Fusion"),
+        ("other", "Other/Unclear"),
+    ]
+
     text = models.CharField(max_length=80, unique=True)
     is_active = models.BooleanField(default=True)
+
+    cultural_origin = models.CharField(
+        max_length=32,
+        choices=ORIGINS,
+        default="other",
+        db_index=True,
+    )
+    origin_confidence = models.FloatField(default=0.0)
 
     def __str__(self) -> str:
         return self.text
