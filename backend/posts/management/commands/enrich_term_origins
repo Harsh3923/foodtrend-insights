@@ -1,0 +1,128 @@
+import json
+import os
+from typing import List, Dict, Any
+
+from django.core.management.base import BaseCommand
+from django.db import transaction
+
+from openai import OpenAI
+from posts.models import Term
+
+
+ALLOWED = [
+    "american_canadian",
+    "italian",
+    "mexican",
+    "korean",
+    "japanese",
+    "chinese",
+    "indian",
+    "middle_eastern",
+    "southeast_asian",
+    "french",
+    "fusion",
+    "other",
+]
+
+SYSTEM = """You label food terms with a broad cultural origin for globalization analysis.
+Return ONLY JSON. No markdown.
+
+Rules:
+- Use the allowed labels exactly.
+- If unclear, use "other".
+- If term is clearly hybrid (e.g., 'sushi burrito', 'kimchi pizza'), use "fusion".
+- Confidence is 0.0 to 1.0.
+Output schema:
+{
+  "results": [
+    {"term": "<original>", "label": "<allowed>", "confidence": 0.0}
+  ]
+}
+"""
+
+class Command(BaseCommand):
+    help = "Enrich Term.cultural_origin + origin_confidence using OpenAI (batch, cached in DB)."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--limit", type=int, default=200)
+        parser.add_argument("--batch", type=int, default=50)
+        parser.add_argument("--only-other", action="store_true", help="Only process terms currently labeled 'other'.")
+        parser.add_argument("--dry-run", action="store_true")
+
+    def handle(self, *args, **opts):
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY not set in environment.")
+
+        limit = opts["limit"]
+        batch_size = max(1, min(200, opts["batch"]))
+        only_other = opts["only_other"]
+        dry_run = opts["dry_run"]
+
+        qs = Term.objects.filter(is_active=True)
+        if only_other:
+            qs = qs.filter(cultural_origin="other")
+
+        terms = list(qs.order_by("id").values_list("text", flat=True)[:limit])
+        if not terms:
+            self.stdout.write(self.style.WARNING("No terms to enrich."))
+            return
+
+        client = OpenAI()
+
+        def chunk(lst: List[str], n: int):
+            for i in range(0, len(lst), n):
+                yield lst[i:i+n]
+
+        updated = 0
+
+        for group in chunk(terms, batch_size):
+            user_input = {
+                "allowed_labels": ALLOWED,
+                "terms": group,
+            }
+
+            # Responses API (recommended for new projects) :contentReference[oaicite:3]{index=3}
+            resp = client.responses.create(
+                model="gpt-4.1-mini",
+                input=[
+                    {"role": "system", "content": SYSTEM},
+                    {"role": "user", "content": json.dumps(user_input)},
+                ],
+                # Encourage strict JSON output
+                text={"format": {"type": "json_object"}},
+            )
+
+            raw = resp.output_text
+            try:
+                data = json.loads(raw)
+                results = data.get("results", [])
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Failed to parse JSON. Raw:\n{raw}\nError: {e}"))
+                continue
+
+            # Apply updates
+            with transaction.atomic():
+                for r in results:
+                    t = (r.get("term") or "").strip()
+                    label = (r.get("label") or "other").strip()
+                    conf = float(r.get("confidence") or 0.0)
+
+                    if label not in ALLOWED:
+                        label = "other"
+                        conf = 0.0
+
+                    if dry_run:
+                        continue
+
+                    # update the exact term row
+                    Term.objects.filter(text=t).update(
+                        cultural_origin=label,
+                        origin_confidence=conf,
+                    )
+                    updated += 1
+
+            self.stdout.write(self.style.SUCCESS(f"Processed batch of {len(group)}"))
+
+        msg = f"Done. Updated {updated} term rows."
+        self.stdout.write(self.style.SUCCESS(msg if not dry_run else "Dry run complete (no DB writes)."))
