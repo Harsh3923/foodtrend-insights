@@ -1,15 +1,19 @@
-from django.shortcuts import render
-
-# Create your views here.
-
-# Create your views here.
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
-from posts.services.trending import get_trending_terms
-from posts.services.search import search_posts
-
 from posts.models import Post
+from posts.services.search import search_posts
+from posts.services.trending import get_trending_terms
+from posts.trending_cuisines import get_trending_cuisines
+
+
+@require_GET
+def api_trending_cuisines(request):
+    days = int(request.GET.get("days", 7))
+    limit = int(request.GET.get("limit", 12))
+    results = get_trending_cuisines(days=days, limit=limit)
+    return JsonResponse({"days": days, "limit": limit, "results": results})
+
 
 @require_GET
 def api_posts(request):
@@ -26,7 +30,8 @@ def api_posts(request):
     } for p in qs]
 
     return JsonResponse({"limit": limit, "results": results})
-    
+
+
 @require_GET
 def api_trends(request):
     days = int(request.GET.get("days", 7))
